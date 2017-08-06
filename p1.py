@@ -134,19 +134,29 @@ def tensorFlow1():
     tf.set_random_seed(42)
     x_train = x1
     y_train = pd.get_dummies(y1)
+    dropoutRate = 0.9
 
     input = tf.placeholder(tf.float32, [None, x1.shape[1]])
     label = tf.placeholder(tf.int32, [None,9])
 
-    neuronsNb = 5
-    weights = tf.Variable(tf.random_normal([x_train.shape[1], neuronsNb]))
-    bias = tf.Variable(tf.random_normal([neuronsNb]))
+    hiddenLayerSizes = [3]
 
-    hiddenLayer1 = tf.matmul(input, weights) + bias
-    hiddenLayer1 = tf.nn.relu(hiddenLayer1)
+    previousLayer = input
+    previousLayerSize = x1.shape[1]
 
-    weights = tf.Variable(tf.random_normal([neuronsNb, 9]))
-    outputLayer = tf.matmul(hiddenLayer1, weights)
+    for layerSize in hiddenLayerSizes:
+        w = tf.Variable(tf.random_normal([previousLayerSize, layerSize]))
+        b = tf.Variable(tf.random_normal([layerSize]))
+
+        hiddenLayer= tf.matmul(previousLayer, w) + b
+        # hiddenLayer = tf.nn.relu(hiddenLayer)
+        # hiddenLayer = tf.nn.dropout(hiddenLayer, dropoutRate)
+        previousLayerSize = layerSize
+        previousLayer = hiddenLayer
+
+
+    weights = tf.Variable(tf.random_normal([previousLayerSize, 9]))
+    outputLayer = tf.matmul(previousLayer, weights)
 
     lossFunction = tf.nn.softmax_cross_entropy_with_logits(logits=outputLayer, labels=label)
     train_step = tf.train.AdamOptimizer(learning_rate=0.001).minimize(lossFunction)
