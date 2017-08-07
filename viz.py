@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+from collections import Counter
 train = pd.read_csv('data\\training_variants')
 trainingText = pd.read_csv('data\\training_text', sep="\|\|", engine='python', header=None, names=["ID","Text"], skiprows=1)
 
@@ -11,6 +11,17 @@ testText = pd.read_csv('data\\test_text', sep="\|\|", engine='python', header=No
 pid = test['ID'].values
 
 train = train.merge(trainingText, on='ID', how='left')
+train["nbWords"] = train["Text"].apply(lambda x: len(str(x).split()) )
+
+globalDict = Counter([])
+for article in train["Text"][:3].values:
+    words = str(article).split()
+    currentDict = Counter(words)
+    globalDict = globalDict + currentDict
+
+print(globalDict)
+
+
 trainGenes = train.groupby('Gene')['Gene'].count()
 # trainGenes.plot(kind='bar')
 # plt.xlabel('Class Count', fontsize=5)
@@ -33,7 +44,7 @@ plt.ylabel('log of Count', fontsize=12)
 plt.show()
 
 
-train["nbWords"] = train["Text"].apply(lambda x: len(str(x).split()) )
+
 
 sns.distplot(train["nbWords"].values, bins=50, kde=False, color='red')
 plt.xlabel('Number of words in text', fontsize=12)

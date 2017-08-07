@@ -1,29 +1,37 @@
 import pandas as pd
 import numpy as np
-from sklearn import *
-import sklearn
 from xgboost import XGBClassifier
+from sklearn import preprocessing
 from collections import Counter
+from sklearn import model_selection
 from sklearn.calibration import CalibratedClassifierCV
+from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
 import seaborn as sns
 import tensorflow as tf
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import cross_val_score
+from sklearn.svm import LinearSVC
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn import svm
 
-
-train = pd.read_csv('data\\training_variants')
+trainData = pd.read_csv('data\\training_variants')
 trainingText = pd.read_csv('data\\training_text', sep="\|\|", engine='python', header=None, names=["ID","Text"], skiprows=1)
 
-test = pd.read_csv('data\\test_variants')
+testData = pd.read_csv('data\\test_variants')
 testText = pd.read_csv('data\\test_text', sep="\|\|", engine='python', header=None, names=["ID","Text"], skiprows=1)
-pid = test['ID'].values
+pid = testData['ID'].values
 
-train = train.merge(trainingText, on='ID', how='left')
-test = test.merge(testText, on='ID', how='left')
+trainData = trainData.merge(trainingText, on='ID', how='left')
+testData = testData.merge(testText, on='ID', how='left')
 
-y = train['Class']
-all = train.drop('Class', axis = 1)
+y = trainData['Class']
 
-all = all.append(test)
+all = trainData.drop('Class', axis = 1)
+
+all = all.append(testData)
 
 for c in all.columns:
     if all[c].dtype == 'object':
@@ -41,11 +49,21 @@ for c in all.columns:
 
 all = all.drop(['Gene', 'Variation','ID','Text'], axis = 1)
 
-train = all[:train.shape[0]]
-test = all[train.shape[0]:]
+train = all[:trainData.shape[0]]
+test = all[trainData.shape[0]:]
 
 x1, x2, y1, y2 = model_selection.train_test_split(train, y, test_size=0.2)
 
+def pipelineText():
+    text_clf = Pipeline([('vect', CountVectorizer()),
+                         ('tfidf', TfidfTransformer()),
+                         ('clf', svm.LinearSVC())
+                         ])
+    x1, x2, y1, y2 = model_selection.train_test_split(trainData, y, test_size=0.2)
+    text_clf = text_clf.fit(x1['Text'], y1)
+    y_test_predicted = text_clf.predict(x2['Text'])
+    print('accuracy %s ' % np.mean(y_test_predicted == y2))
+    return None
 
 def xgboost():
     print('\n##################\nXGBoost\n##################')
@@ -68,13 +86,18 @@ def xgboost():
 
     estimator = XGBClassifier()
     estimator.set_params(**param)
+
     calibratedCV = CalibratedClassifierCV(estimator, method='sigmoid', cv=5)
     calibratedCV.fit(x1, y1)
     prediction = calibratedCV.predict(x2)
-    #score = metrics.log_loss(y2, prediction, labels = list(range(1, 10)) )
 
-    np.mean(prediction == y2)
+
+    # estimator.fit(x1, y1)
+    # prediction = estimator.predict(x2)
+
+    print('accuracy %s ' % np.mean(prediction == y2))
     result = calibratedCV.predict(test)
+    # result = estimator.predict(test)
     return result
 
 
@@ -186,9 +209,9 @@ def tensorFlow1():
 
         print('done tf %s ' % prediction)
 
-
-tensorFlow1()
-# result = xgboost()
+# result = pipelineText()
+#tensorFlow1()
+result = xgboost()
 # onehot = pd.get_dummies(result)
 # submission = pd.DataFrame()
 # submission['ID'] = pid
