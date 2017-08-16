@@ -16,6 +16,8 @@ from sklearn.svm import LinearSVC
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn import svm
+import lightgbm as lgb
+import matplotlib.pyplot as plt
 
 trainData = pd.read_csv('data\\training_variants')
 trainingText = pd.read_csv('data\\training_text', sep="\|\|", engine='python', header=None, names=["ID","Text"], skiprows=1)
@@ -64,6 +66,83 @@ def pipelineText():
     y_test_predicted = text_clf.predict(x2['Text'])
     print('accuracy %s ' % np.mean(y_test_predicted == y2))
     return None
+
+
+
+def lightGBM():
+    print('\n##################\nlight XGBoost\n##################')
+    lgb_params = {
+        'learning_rate': 0.01,
+        'max_depth': 5,
+        'num_leaves': 40,
+        'objective': 'multiclass',
+        'num_class': 9,
+        'tree_learner': 'voting',
+        'metric': 'multi_logloss',
+        'feature_fraction': 0.75,
+        'bagging_fraction': 0.75,
+        'max_bin': 100}
+    classes = y - 1
+    x1, x2, y1, y2 = model_selection.train_test_split(train, classes, test_size=0.2)
+
+    d_train = lgb.Dataset(x1, label=y1)
+    d_val = lgb.Dataset(x2, label=y2, reference=d_train)
+
+    cv_result_lgb = lgb.cv(lgb_params,
+                           d_train,
+                           num_boost_round=1000,
+                           nfold=5,
+                           stratified=True,
+                           early_stopping_rounds=50,
+                           verbose_eval=100,
+                           show_stdv=True)
+
+    num_boost_rounds_lgb = len(cv_result_lgb['multi_logloss-mean'])
+    print('num_boost_rounds_lgb=' + str(num_boost_rounds_lgb))
+
+    model_lgb = lgb.train(lgb_params, d_train, num_boost_round=num_boost_rounds_lgb)
+    y_pred = model_lgb.predict(x2)
+
+    print('accuracy %s ' % np.mean(y_pred == y2))
+
+    return result
+
+
+def lightGBM1():
+    print('\n##################\nXGBoost\n##################')
+    parms = {'task': 'train',
+             'boosting_type': 'gbdt',
+             'objective': 'multiclass',
+             'num_class': 9,
+             'metric': {'multi_logloss'},
+             'learning_rate': 0.05,
+             'max_depth': 5,
+             'num_iterations': 400,
+             'num_leaves': 95,
+             'min_data_in_leaf': 60,
+             'lambda_l1': 1.0,
+             'feature_fraction': 0.8,
+             'bagging_fraction': 0.8,
+             'bagging_freq': 5}
+
+    classes = y - 1
+    x1, x2, y1, y2 = model_selection.train_test_split(train, classes, test_size=0.2)
+
+    d_train = lgb.Dataset(x1, label=y1)
+    d_val = lgb.Dataset(x2, label=y2, reference=d_train)
+
+    rnds = 260
+    mod = lgb.train(parms, train_set=d_train, num_boost_round=rnds,
+                    valid_sets=[d_val], valid_names=['dval'], verbose_eval=20,
+                    early_stopping_rounds=20)
+
+    prediction = mod.predict(x2)
+
+
+    print('accuracy %s ' % np.mean(prediction == y2))
+    result = mod.predict(test)
+    # result = estimator.predict(test)
+    return result
 
 def xgboost():
     print('\n##################\nXGBoost\n##################')
@@ -209,6 +288,7 @@ def tensorFlow1():
 
         print('done tf %s ' % prediction)
 
+#result = lightGBM()
 # result = pipelineText()
 #tensorFlow1()
 result = xgboost()
